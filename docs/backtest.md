@@ -121,4 +121,32 @@ python -m src.backtest.walkforward --test-years 1 --step-months 12 --days 2000
 
 ### `--use-regime`과의 조합
 
-단일 백테스트는 `--use-regime`으로 비교 가능. walk-forward는 현재 미통합 (다음 phase). 수동으로 BULL/BEAR 기간을 따로 walk-forward 돌려 비교.
+단일 백테스트는 `--use-regime`으로 비교 가능. walk-forward는 현재 미통합. 수동으로 BULL/BEAR 기간을 따로 walk-forward 돌려 비교.
+
+## Grid search 룰 파라미터 튜닝
+
+핵심 파라미터에 대해 모든 조합 백테스트:
+
+```bash
+python -m src.backtest.optimize --criterion sharpe --top-n 20 --days 1500
+```
+
+기본 grid (36 조합):
+- `buy.rsi_below`: 30, 35, 40, 45
+- `sell.stop_loss_atr_mult`: 1.5, 2.0, 2.5
+- `sell.take_profit_atr_mult`: 2.0, 3.0, 4.0
+
+옵션:
+- `--criterion`: `sharpe` (기본), `profit_factor`, `cagr_pct`, `total_return_pct`, `sortino`
+- `--min-trades`: 통과 최소 트레이드 수 (기본 10)
+
+결과: `backtests/optimize_YYYYMMDD_HHMMSS.md` 에 Top N + 최적 조합 yaml.
+
+### 주의 — over-fit
+
+**단일 기간 grid search의 top 결과는 over-fit 가능성이 매우 높음.** 반드시 walk-forward로 robustness 재검증:
+
+1. `python -m src.backtest.optimize` → top 3 후보 추출
+2. config.yaml의 strategy 값 후보로 변경
+3. `python -m src.backtest.walkforward` → 모든 window 통과해야 채택
+4. 한 window라도 Sharpe < 0이면 후보 탈락 → 기본값 유지

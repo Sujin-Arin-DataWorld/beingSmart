@@ -95,3 +95,31 @@ stocks:
   - SHOP
   - UBER
   - ABNB
+
+# 채권 ETF (다른 자산 클래스)
+bonds:
+  - IEF      # 7-10Y Treasury
+  - LQD      # Investment Grade Corp
+  - MUB      # Municipal
+  - EMB      # Emerging Markets Bond
+  - TIP      # TIPS (Inflation-protected)
+
+# 원자재 ETF
+commodities:
+  - DBC      # 종합 원자재
+  - DBA      # 농산물
+  - USO      # 원유
+  - UNG      # 천연가스
+  - PPLT     # 백금
+
+# 통화 ETF
+currencies:
+  - UUP      # Dollar Bull
+  - FXE      # Euro
+  - FXY      # Yen
+
+# 해외 주식
+international:
+  - EFA      # 선진국
+  - EEM      # 신흥국
+  - VXUS     # ex-US 전체

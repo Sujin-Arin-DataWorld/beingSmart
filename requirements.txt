@@ -5,3 +5,5 @@ PyYAML>=6.0
 anthropic>=0.40.0
 jinja2>=3.1
 python-dotenv>=1.0
+requests>=2.31           # FRED, Alpaca
+scikit-learn>=1.3        # ML regime classifier (옵션 — 없어도 rule-based fallback)

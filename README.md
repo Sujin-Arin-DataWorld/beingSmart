@@ -106,6 +106,9 @@ python -m src.backtest --use-regime          # VIX/SP500 historical로 BEAR/RISK
 
 # Walk-forward (rolling out-of-sample) — over-fit 검출
 python -m src.backtest.walkforward --test-years 1 --step-months 12
+
+# 룰 파라미터 grid search
+python -m src.backtest.optimize --criterion sharpe --top-n 20
 ```
 
 결과는 `backtests/`에 마크다운+JSON으로 저장. Sharpe, max DD, win rate, profit factor 자동 계산. 통과 기준: [`docs/backtest.md`](docs/backtest.md).
@@ -160,6 +163,11 @@ holdings:
 - **walk-forward 백테스트**: rolling window로 over-fit 검출
 - **paper trading**: 룰을 가상 계좌에 실집행해 실시간 alpha 측정
 - **Alpaca fallback**: yfinance 누락 시 보완 (API key 등록 시 자동)
+- **Multi-asset**: 채권/원자재/통화/해외주식 ETF + 자산 클래스별 노출 추적
+- **ML regime**: KMeans 4-cluster (sklearn) + rule-based 비교
+- **FRED 거시**: 실업률, CPI, 정책금리, 10Y-2Y spread (recession indicator)
+- **Risk parity**: 보유 종목 inverse-volatility 권장 비중 + 리밸런스 추천
+- **Grid search**: 룰 파라미터 grid 백테스트 (rsi_below × stop × target)
 
 상세: [`docs/strategy.md`](docs/strategy.md), [`docs/backtest.md`](docs/backtest.md)
 

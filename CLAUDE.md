@@ -49,6 +49,13 @@ src/
 - `src/data/alpaca.py`: yfinance 누락 시 fallback (ALPACA_API_KEY 필요)
 - `src/portfolio/drawdown.py`: equity_history.yaml 누적, DD 추적, 임계 초과 시 매수 차단
 
+추가 모듈 (Tier 4):
+- `src/backtest/optimize.py`: 룰 파라미터 grid search
+- `src/data/fred.py`: 실업률·CPI·금리·10Y-2Y (FRED_API_KEY 필요)
+- `src/portfolio/asset_class.py`: 자산 클래스 매핑 + 노출
+- `src/portfolio/optimizer.py`: inverse-volatility 권장 비중
+- `src/regime/ml_classifier.py`: KMeans 4-cluster regime + rule-based 비교
+
 ## 실행 진입점
 
 - 데일리 리포트: `python main.py`

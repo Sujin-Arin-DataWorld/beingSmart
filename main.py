@@ -27,6 +27,7 @@ from src.data.alpaca import fetch_with_fallback, is_alpaca_available
 from src.data.macro import fetch_macro_snapshot, compute_breadth
 from src.data.fundamentals import fetch_fundamentals_batch, days_to_earnings
 from src.data.news import fetch_news_batch
+from src.data.fred import fetch_fred_snapshot, recession_indicator, is_fred_available
 from src.indicators.technical import compute_all
 from src.screener.rules import check_buy, check_sell
 from src.screener.scoring import score_buy_signal
@@ -45,7 +46,10 @@ from src.portfolio.drawdown import (
     load_equity_history,
     should_disable_new_entries,
 )
+from src.portfolio.asset_class import asset_class_exposure, diversification_warnings
+from src.portfolio.optimizer import inverse_volatility_weights, compare_actual_vs_target
 from src.regime.classifier import classify as classify_regime
+from src.regime.ml_classifier import fit_and_predict as ml_classify, compare_with_rule_based
 from src.recommender.ai import get_ai_summary
 from src.report.generator import generate_report, save_report
 
@@ -60,9 +64,13 @@ def main() -> int:
     tickers = sorted(set(
         (universe.get("etf") or [])
         + (universe.get("stocks") or [])
+        + (universe.get("bonds") or [])
+        + (universe.get("commodities") or [])
+        + (universe.get("currencies") or [])
+        + (universe.get("international") or [])
         + [h["ticker"] for h in portfolio.get("holdings", [])]
     ))
-    print(f"[beingSmart] universe = {len(tickers)} tickers")
+    print(f"[beingSmart] universe = {len(tickers)} tickers (multi-asset)")
 
     print(f"[beingSmart] downloading history (yfinance + Alpaca fallback: "
           f"{'available' if is_alpaca_available() else 'unavailable'})...")
@@ -86,7 +94,49 @@ def main() -> int:
         choppy_vix=regime_cfg.get("choppy_vix", 20.0),
         choppy_breadth=regime_cfg.get("choppy_breadth", 0.40),
     )
-    print(f"[beingSmart] regime = {regime_assessment.regime.value}")
+    print(f"[beingSmart] regime (rule) = {regime_assessment.regime.value}")
+
+    # === ML regime (옵션) ===
+    ml_cfg = config.get("ml_regime", {})
+    ml_regime_result = None
+    ml_comparison = None
+    if ml_cfg.get("enable", True):
+        # ML은 historical macro 필요 — VIX/SP500 본격 다운로드
+        try:
+            import yfinance as yf
+            macro_for_ml = yf.download(
+                tickers="^VIX ^GSPC",
+                period=f"{config['strategy']['screening']['lookback_days']}d",
+                auto_adjust=True, progress=False, group_by="ticker", threads=True,
+            )
+            macro_hist_ml = {}
+            for t in ["^VIX", "^GSPC"]:
+                try:
+                    sub = macro_for_ml[t].dropna()
+                    if len(sub) >= 250:
+                        macro_hist_ml[t] = sub
+                except (KeyError, AttributeError):
+                    continue
+            ml_regime_result = ml_classify(
+                macro_hist_ml,
+                n_clusters=ml_cfg.get("n_clusters", 4),
+            )
+        except Exception as e:
+            print(f"[beingSmart] ML regime skipped: {e}")
+        ml_comparison = compare_with_rule_based(ml_regime_result, regime_assessment.regime)
+        if ml_comparison.get("available"):
+            print(f"[beingSmart] regime (ML)   = {ml_comparison['ml_regime']} "
+                  f"({'동의' if ml_comparison['agreement'] else '불일치'})")
+
+    # === FRED 거시 (옵션) ===
+    fred_snapshot = {}
+    fred_recession = None
+    if is_fred_available():
+        print(f"[beingSmart] fetching FRED macro indicators...")
+        fred_snapshot = fetch_fred_snapshot()
+        fred_recession = recession_indicator(fred_snapshot)
+        if fred_recession:
+            print(f"[beingSmart] {fred_recession}")
 
     # === 매수 후보 추출 + 점수화 ===
     strategy_cfg = config["strategy"]
@@ -219,6 +269,29 @@ def main() -> int:
         holdings_status.append(status)
     print(f"[beingSmart] sell signals: {len(sell_signals)}, holdings: {len(holdings_status)}")
 
+    # === 자산 클래스 노출 + Risk parity ===
+    asset_class_pct = asset_class_exposure(
+        portfolio.get("holdings", []), current_prices, fundamentals
+    )
+    asset_class_warnings = diversification_warnings(asset_class_pct)
+    for w in asset_class_warnings:
+        print(f"[beingSmart] {w}")
+
+    # Inverse vol weights (보유 종목 기준)
+    opt_cfg = config.get("optimizer", {})
+    risk_parity_recs: list = []
+    if opt_cfg.get("enable_inverse_vol", True) and portfolio.get("holdings"):
+        h_tickers = [h["ticker"] for h in portfolio.get("holdings", [])]
+        weights = inverse_volatility_weights(history, h_tickers, window=corr_window)
+        if weights:
+            risk_parity_recs = compare_actual_vs_target(
+                portfolio.get("holdings", []), current_prices, weights,
+            )
+            threshold = opt_cfg.get("rebalance_threshold_pct", 5.0)
+            risk_parity_recs = [r for r in risk_parity_recs if abs(r["diff_pct"]) >= threshold]
+            if risk_parity_recs:
+                print(f"[beingSmart] risk-parity rebalance suggestions: {len(risk_parity_recs)}")
+
     # === Drawdown 추적 ===
     cash_now = portfolio.get("cash_usd", 0.0)
     current_equity = cash_now + sum(h["market_value"] for h in holdings_status)
@@ -239,12 +312,18 @@ def main() -> int:
     ai_context = {
         "regime": regime_assessment.regime.value,
         "regime_reasons": regime_assessment.reasons,
+        "ml_regime": ml_comparison,
         "diversification": div_score,
         "sector_exposure": sect_exp,
+        "asset_class_exposure": asset_class_pct,
+        "asset_class_warnings": asset_class_warnings,
         "portfolio_beta": portfolio_beta,
         "news": news_by_ticker,
         "fundamentals": {t: fundamentals.get(t) for t in candidate_tickers if fundamentals.get(t)},
         "drawdown": dd_metrics,
+        "fred": fred_snapshot,
+        "fred_recession": fred_recession,
+        "risk_parity_recs": risk_parity_recs,
     }
     ai = get_ai_summary(buy_signals, sell_signals, holdings_status, context=ai_context)
     if ai:
@@ -268,6 +347,12 @@ def main() -> int:
         portfolio_beta=portfolio_beta,
         news_by_ticker=news_by_ticker,
         drawdown=dd_metrics,
+        asset_class_pct=asset_class_pct,
+        asset_class_warnings=asset_class_warnings,
+        ml_comparison=ml_comparison,
+        fred_snapshot=fred_snapshot,
+        fred_recession=fred_recession,
+        risk_parity_recs=risk_parity_recs,
     )
 
     reports_dir = ROOT / "reports"

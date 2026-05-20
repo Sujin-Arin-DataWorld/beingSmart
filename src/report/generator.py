@@ -20,6 +20,12 @@ def generate_report(
     portfolio_beta: Optional[float] = None,
     news_by_ticker: Optional[Dict[str, List[Dict]]] = None,
     drawdown: Optional[Dict] = None,
+    asset_class_pct: Optional[Dict[str, float]] = None,
+    asset_class_warnings: Optional[List[str]] = None,
+    ml_comparison: Optional[Dict] = None,
+    fred_snapshot: Optional[Dict] = None,
+    fred_recession: Optional[str] = None,
+    risk_parity_recs: Optional[List[Dict]] = None,
 ) -> str:
     today = datetime.now().strftime("%Y-%m-%d %H:%M")
     strategy = config["strategy"]
@@ -41,6 +47,31 @@ def generate_report(
             lines.append(f"- {r}")
         if breadth is not None:
             lines.append(f"- breadth (advance/total): {breadth:.2f}")
+        if ml_comparison and ml_comparison.get("available"):
+            agree = "✓ 동의" if ml_comparison["agreement"] else "✗ 불일치"
+            lines.append(
+                f"- ML 분류기 ({ml_comparison['method']}, n={ml_comparison['n_samples']}): "
+                f"**{ml_comparison['ml_regime']}** ({agree})"
+            )
+        lines.append("")
+
+    # === FRED 거시 (옵션) ===
+    if fred_snapshot:
+        lines += ["## FRED 거시 지표", ""]
+        if fred_recession:
+            lines += [f"- {fred_recession}", ""]
+        lines += ["| 지표 | 최신값 | 1년 전 | YoY 변화 | 최신 날짜 |",
+                  "|---|---:|---:|---:|---|"]
+        for sid, d in fred_snapshot.items():
+            cur = d["current"]
+            ya = d["year_ago"]
+            yoy = d["yoy_change"]
+            cur_str = f"{cur:.2f}{d['unit']}" if cur is not None else "N/A"
+            ya_str = f"{ya:.2f}" if ya is not None else "N/A"
+            yoy_str = f"{yoy:+.2f}{d['unit']}" if yoy is not None else "N/A"
+            lines.append(
+                f"| {d['label']} ({sid}) | {cur_str} | {ya_str} | {yoy_str} | {d['current_date']} |"
+            )
         lines.append("")
 
     # === 거시 dashboard ===
@@ -102,6 +133,30 @@ def generate_report(
             lines += ["### 섹터별 비중", "", "| 섹터 | 비중 |", "|---|---:|"]
             for sec, pct in sorted(sector_exposure_pct.items(), key=lambda x: -x[1]):
                 lines.append(f"| {sec} | {pct * 100:.2f}% |")
+            lines.append("")
+
+        if asset_class_pct:
+            lines += ["### 자산 클래스별 비중", "", "| 클래스 | 비중 |", "|---|---:|"]
+            for cls, pct in sorted(asset_class_pct.items(), key=lambda x: -x[1]):
+                lines.append(f"| {cls} | {pct * 100:.2f}% |")
+            lines.append("")
+        if asset_class_warnings:
+            for w in asset_class_warnings:
+                lines.append(f"- {w}")
+            lines.append("")
+
+        if risk_parity_recs:
+            lines += [
+                "### Risk parity 권장 (inverse-volatility)",
+                "",
+                "| 티커 | 현재 | 권장 | 차이 | 액션 |",
+                "|---|---:|---:|---:|---|",
+            ]
+            for r in risk_parity_recs:
+                lines.append(
+                    f"| {r['ticker']} | {r['actual_pct']:.2f}% | "
+                    f"{r['target_pct']:.2f}% | {r['diff_pct']:+.2f}%p | {r['action']} |"
+                )
             lines.append("")
 
     if ai_summary:
