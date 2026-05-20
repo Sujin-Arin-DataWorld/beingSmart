@@ -1,0 +1,51 @@
+name: Daily Report
+
+on:
+  schedule:
+    # 평일 22:30 UTC = NY 5:30 PM EST (또는 6:30 PM EDT)
+    # 미 동부 장 마감(4:00 PM)으로부터 1.5~2.5시간 후
+    - cron: '30 22 * * 1-5'
+  workflow_dispatch:  # 수동 실행 허용
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-report
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily analysis
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_MODEL: claude-sonnet-4-6
+          TZ: America/New_York
+        run: python main.py
+
+      - name: Commit report
+        run: |
+          git config user.name "beingSmart-bot"
+          git config user.email "bot@beingSmart.local"
+          git add reports/
+          if git diff --staged --quiet; then
+            echo "no changes to commit"
+          else
+            git commit -m "report: $(date -u +%Y-%m-%d)"
+            git push
+          fi

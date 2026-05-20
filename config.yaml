@@ -1,0 +1,35 @@
+# beingSmart 전략 설정
+# 수정 후 다음 실행부터 반영. 검증되지 않은 값으로 실전 매매 금지.
+
+strategy:
+  # 매수 신호 (모두 만족해야 매수 후보로 선정)
+  buy:
+    rsi_below: 40                 # RSI 과매도권
+    price_above_sma200: true      # 장기 상승 추세 안에서만 매수
+    macd_bullish: true            # MACD 히스토그램 양수 또는 골든크로스
+    min_volume_ratio: 1.2         # 최근 거래량이 20일 평균의 1.2배 이상
+
+  # 매도 신호 (보유 종목 중 하나라도 만족 시 매도 후보)
+  sell:
+    rsi_above: 75                 # RSI 과매수
+    stop_loss_atr_mult: 2.0       # 진입가 - ATR*2 = 손절선
+    take_profit_atr_mult: 3.0     # 진입가 + ATR*3 = 익절선
+    break_below_sma50: true       # 50일선 이탈 시 추세 종료
+    break_below_avg_cost_mult: 0.92  # 평단가 -8% 손절 (안전망)
+
+  # 리스크 관리
+  risk:
+    atr_period: 14
+    risk_per_trade: 0.02          # 자본의 2% 리스크
+    max_position_size: 0.15       # 단일 종목 최대 15%
+
+  # 스크리닝 필터
+  screening:
+    min_avg_volume: 500000        # 일평균 거래량
+    min_price: 5                  # 페니주식 제외
+    lookback_days: 250            # 데이터 조회 기간 (250 영업일)
+
+report:
+  top_n_recommendations: 10
+  language: ko                    # 리포트 언어 (ko / en)
+  include_charts: false           # 차트 이미지 첨부 여부 (추후 확장)

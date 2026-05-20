@@ -1,0 +1,97 @@
+# 감시 유니버스 — 매일 스크리닝 대상 종목
+# 너무 많으면 yfinance 호출 시간 증가. 50~100개 권장.
+
+etf:
+  # 광역 시장
+  - SPY    # S&P 500
+  - QQQ    # NASDAQ 100
+  - VTI    # 전체 미국 시장
+  - IWM    # Russell 2000 소형주
+  - DIA    # 다우 30
+
+  # 섹터 ETF (SPDR)
+  - XLK    # Tech
+  - XLF    # Financial
+  - XLE    # Energy
+  - XLV    # Healthcare
+  - XLI    # Industrial
+  - XLY    # Consumer Discretionary
+  - XLP    # Consumer Staples
+  - XLB    # Materials
+  - XLU    # Utilities
+  - XLRE   # Real Estate
+  - XLC    # Communication Services
+
+  # 테마/팩터
+  - SOXX   # Semiconductors
+  - ARKK   # Innovation
+  - VGT    # Tech (Vanguard)
+  - VHT    # Healthcare (Vanguard)
+  - SCHD   # 배당 성장
+
+  # 채권/원자재 (자산배분 참고용)
+  - TLT    # 장기 국채
+  - AGG    # 종합 채권
+  - GLD    # 금
+  - SLV    # 은
+
+stocks:
+  # Mega Cap Tech
+  - AAPL
+  - MSFT
+  - GOOGL
+  - AMZN
+  - META
+  - NVDA
+  - TSLA
+  - AVGO
+
+  # Financials
+  - JPM
+  - BAC
+  - V
+  - MA
+  - BRK-B
+
+  # Healthcare
+  - JNJ
+  - UNH
+  - LLY
+  - PFE
+
+  # Consumer
+  - WMT
+  - PG
+  - HD
+  - DIS
+  - NKE
+  - COST
+  - MCD
+
+  # Industrials/Energy
+  - CAT
+  - BA
+  - GE
+  - XOM
+  - CVX
+
+  # Software/Cloud
+  - CRM
+  - ADBE
+  - ORCL
+  - NOW
+  - SNOW
+
+  # Semiconductors
+  - AMD
+  - INTC
+  - QCOM
+  - TSM
+  - MU
+
+  # Other Notable
+  - NFLX
+  - PYPL
+  - SHOP
+  - UBER
+  - ABNB
