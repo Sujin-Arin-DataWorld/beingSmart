@@ -15,24 +15,28 @@
 ```
 src/
 ├── data/
-│   ├── fetcher.py       yfinance 일봉 다운로드
-│   └── macro.py         거시 변수 (VIX, DXY, 금리, 금, 원유, 지수)
+│   ├── fetcher.py       yfinance 일봉 다운로드 (batch)
+│   ├── macro.py         VIX/DXY/금리/원자재/지수 + breadth
+│   ├── fundamentals.py  P/E, EPS, sector, beta, 어닝 일자
+│   └── news.py          종목 catalyst (yfinance Ticker.news)
 ├── indicators/
 │   └── technical.py     RSI, MACD, SMA, ATR (pandas 직접 계산)
 ├── regime/
-│   └── classifier.py    BULL/CHOPPY/BEAR/RISK_OFF 분류 + buy modifier
+│   └── classifier.py    BULL/CHOPPY/BEAR/RISK_OFF + buy modifier
 ├── screener/
-│   ├── rules.py         매수/매도 룰 (config.yaml 기반)
-│   └── scoring.py       매수 신호 0~100 점수화 (6요인 가중합)
+│   ├── rules.py         매수/매도 룰
+│   └── scoring.py       매수 신호 0~100 점수화
 ├── portfolio/
-│   └── manager.py       portfolio.yaml 로드, 손절선/익절선 계산
+│   ├── manager.py       portfolio.yaml 로드, 손절선/익절선
+│   ├── sizing.py        ATR 기반 자동 매수 수량
+│   └── diversification.py 상관·섹터·베타·div_score
 ├── recommender/
-│   └── ai.py            Claude API 종합 해석
+│   └── ai.py            Claude API 종합 해석 (regime/분산도/catalyst 포함)
 ├── report/
-│   └── generator.py     마크다운 리포트 → reports/YYYY-MM-DD.md
+│   └── generator.py     마크다운 리포트
 └── backtest/
-    ├── engine.py        historical OHLCV 시뮬레이션
-    ├── metrics.py       Sharpe, max DD, profit factor 등
+    ├── engine.py        시뮬레이션 (--use-regime 옵션)
+    ├── metrics.py       Sharpe, max DD, profit factor
     └── __main__.py      python -m src.backtest CLI
 ```
 

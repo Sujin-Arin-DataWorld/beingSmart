@@ -14,12 +14,17 @@
 3. 기술 지표 계산 (SMA, RSI, MACD, ATR, Volume Ratio)
 4. **시장 regime 분류** (BULL/CHOPPY/BEAR/RISK_OFF)
 5. 매수 룰 적용 → **신호 점수화 (0~100)** → 신규 진입 후보 추출
-6. 보유 종목별 매도 신호 점검 → **매도 검토 리스트**
-7. 보유 종목 손절선·익절선·손익률 갱신
-8. Claude로 종합 해석 (포지션 액션, 우선순위)
-9. `reports/YYYY-MM-DD.md` 마크다운 리포트 저장 + GitHub에 자동 commit
+6. **어닝 블랙아웃 필터** (D-7 이내 종목 자동 제외)
+7. **펀더멘털 fetch** (P/E, EPS, sector, beta, market cap)
+8. **자동 position sizing** (ATR 기반 추천 매수 수량 + 리스크 금액)
+9. **분산도 점검** (상관 매트릭스, 섹터 노출, 포트폴리오 베타)
+10. **뉴스 catalyst** (매수 후보 상위 종목 최근 72h 헤드라인)
+11. 보유 종목별 매도 신호 점검 → 매도 검토 리스트
+12. 보유 종목 손절선·익절선·손익률 갱신
+13. Claude로 종합 해석 (regime/분산도/catalyst/펀더 종합)
+14. `reports/YYYY-MM-DD.md` 마크다운 리포트 저장 + GitHub에 자동 commit
 
-추가로 **백테스트 엔진** (`python -m src.backtest`)으로 룰의 historical 효과 검증.
+추가로 **백테스트 엔진** (`python -m src.backtest [--use-regime]`)으로 룰의 historical 효과 검증.
 
 ## 폴더 구조
 
@@ -123,8 +128,11 @@ holdings:
 - **매수 룰**: 종가 > SMA(200), RSI < 40, MACD 양전환, 거래량 ≥ 1.2x
 - **매도 룰**: RSI > 75, SMA(50) 이탈, ATR×2 손절, ATR×3 익절, 평단가 -8% 안전망
 - **시장 regime**: VIX + S&P 200SMA + breadth → BULL/CHOPPY/BEAR/RISK_OFF
-- **신호 점수화 (0~100)**: 룰 통과 종목 가중합, threshold 이상만 추천
-- **거시 dashboard**: VIX, DXY, 10Y/30Y, 금, 원유, 3대 지수 매일 갱신
+- **신호 점수화 (0~100)**: 6요인 (RSI/MACD/거래량/추세/regime/macro) 가중합
+- **어닝 블랙아웃**: 어닝 D-7 이내 신규 매수 차단
+- **자동 sizing**: ATR 기반 정수 매수 수량 + 리스크 금액 자동 계산
+- **분산도**: 상관 매트릭스 + 섹터 노출 + 포트폴리오 베타 + diversification score
+- **catalyst**: 매수 후보 최근 72h 뉴스 자동 fetch (yfinance)
 
 상세: [`docs/strategy.md`](docs/strategy.md), [`docs/backtest.md`](docs/backtest.md)
 

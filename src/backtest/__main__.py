@@ -16,6 +16,29 @@ from src.backtest.engine import run_backtest
 from src.backtest.metrics import compute_metrics, format_trade_table, format_equity_ascii
 
 
+def _download_macro_history(days: int):
+    """백테스트용 ^VIX + ^GSPC historical 다운로드."""
+    import yfinance as yf
+
+    out = {}
+    df = yf.download(
+        tickers="^VIX ^GSPC",
+        period=f"{days}d",
+        auto_adjust=True,
+        progress=False,
+        group_by="ticker",
+        threads=True,
+    )
+    for t in ["^VIX", "^GSPC"]:
+        try:
+            sub = df[t].dropna()
+            if len(sub) >= 200:
+                out[t] = sub
+        except (KeyError, AttributeError):
+            continue
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="beingSmart 백테스트")
     parser.add_argument("--start", help="시작일 YYYY-MM-DD")
@@ -25,6 +48,8 @@ def main() -> int:
     parser.add_argument("--max-positions", type=int, default=10)
     parser.add_argument("--slippage", type=float, default=0.001, help="0.001 = 0.1%")
     parser.add_argument("--max-hold", type=int, default=60)
+    parser.add_argument("--use-regime", action="store_true",
+                        help="VIX/SP500 historical로 BEAR/RISK_OFF 차단")
     args = parser.parse_args()
 
     config = yaml.safe_load((ROOT / "config.yaml").read_text(encoding="utf-8"))
@@ -35,6 +60,12 @@ def main() -> int:
     history = fetch_history(tickers, days=args.days)
     print(f"[backtest] loaded {len(history)} tickers with sufficient history")
 
+    macro_history = None
+    if args.use_regime:
+        print(f"[backtest] downloading macro history (^VIX, ^GSPC)...")
+        macro_history = _download_macro_history(args.days)
+        print(f"[backtest] macro loaded: {list(macro_history.keys())}")
+
     result = run_backtest(
         history=history,
         strategy_cfg=config["strategy"],
@@ -44,6 +75,8 @@ def main() -> int:
         max_positions=args.max_positions,
         slippage_pct=args.slippage,
         max_hold_days=args.max_hold,
+        use_regime=args.use_regime,
+        macro_history=macro_history,
     )
     metrics = compute_metrics(result)
     print(json.dumps(metrics, indent=2, ensure_ascii=False))
@@ -90,7 +123,16 @@ def _render_report(result, metrics: dict, args) -> str:
         f"- 최대 동시 포지션: {args.max_positions}",
         f"- 슬리피지: {args.slippage * 100:.2f}% (편도)",
         f"- 최대 보유 일수: {args.max_hold}d",
+        f"- regime 필터: {'ON' if result.regime_used else 'OFF'}",
         "",
+    ]
+    if result.regime_used and result.regime_stats:
+        total = sum(result.regime_stats.values()) or 1
+        lines += ["## Regime 분포 (시뮬레이션 기간)", ""]
+        for r, n in result.regime_stats.items():
+            lines.append(f"- {r}: {n}d ({n / total * 100:.1f}%)")
+        lines.append("")
+    lines += [
         "## 핵심 지표",
         "",
         "| 지표 | 값 |",

@@ -47,6 +47,30 @@ scoring:
     macro: 0.15                   # VIX 등 거시 안정성
   min_score_threshold: 40         # 이 점수 미만은 리포트 추천 제외
 
+# Position sizing (ATR 기반 자동 수량 계산)
+sizing:
+  risk_per_trade: 0.02            # 자본의 2%만큼 트레이드당 리스크
+  max_position_pct: 0.15          # 단일 종목 최대 비중
+  min_shares: 1                   # 최소 매수 수량
+
+# 어닝 블랙아웃 (실적 발표 임박 시 신규 매수 차단)
+earnings:
+  blackout_days: 7                # D-7 이내 차단
+  lookahead_days: 14              # 어닝 일자 조회 범위
+
+# 뉴스 catalyst
+news:
+  enable: true
+  hours_lookback: 72              # 최근 N시간 뉴스
+  per_ticker_limit: 3             # 종목당 헤드라인 수
+  top_n_for_news: 5               # 상위 N개 매수 후보만 뉴스 fetch
+
+# 분산도 점검
+diversification:
+  correlation_window: 60          # 일간 수익률 상관 계산 기간
+  high_corr_warning: 0.70         # 보유와 상관 이 이상이면 warning
+  max_sector_warning: 0.40        # 단일 섹터 비중 이 이상이면 warning
+
 report:
   top_n_recommendations: 10
   language: ko                    # 리포트 언어 (ko / en)

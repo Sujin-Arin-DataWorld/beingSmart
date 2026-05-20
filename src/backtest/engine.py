@@ -3,9 +3,10 @@
 설계:
 - 매일 종가 기준으로 매도 체크, 매수 후보 추출
 - 진입은 다음 거래일 **시가** (look-ahead 방지)
-- 슬리피지 적용 (디폴트 0.1% — 매수 +0.1%, 매도 -0.1%)
-- position size = equity / max_positions (단순 균등)
+- 슬리피지 적용 (편도)
+- position size = equity / max_positions (균등)
 - 200일 워밍업 후 시뮬레이션 시작
+- (옵션) use_regime: macro_history로 매일 regime 판정, BEAR/RISK_OFF에서 신규 진입 차단
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -23,6 +24,7 @@ class Trade:
     entry_price: float
     shares: float
     entry_reason: str = ""
+    entry_regime: Optional[str] = None
     exit_date: Optional[pd.Timestamp] = None
     exit_price: Optional[float] = None
     exit_reason: Optional[str] = None
@@ -41,6 +43,8 @@ class BacktestResult:
     start_date: pd.Timestamp
     end_date: pd.Timestamp
     n_universe: int = 0
+    regime_used: bool = False
+    regime_stats: Dict[str, int] = field(default_factory=dict)
 
 
 def _normalize_ts(date_str: str, ref_index: pd.DatetimeIndex) -> pd.Timestamp:
@@ -57,7 +61,6 @@ def _exit_check(
     strategy_cfg: dict,
     max_hold_days: int,
 ) -> Optional[str]:
-    """매도 사유 결정. None이면 보유 유지."""
     sell = strategy_cfg["sell"]
     price = float(row["Close"])
     atr_val = float(row["atr_14"]) if not pd.isna(row["atr_14"]) else None
@@ -89,6 +92,46 @@ def _exit_check(
     return None
 
 
+def _simple_regime_at_date(
+    today: pd.Timestamp,
+    macro_history: Dict[str, pd.DataFrame],
+) -> str:
+    """simplified historical regime: VIX 수준 + SP500 vs 200SMA + 5일 변화."""
+    vix: Optional[float] = None
+    vix_df = macro_history.get("^VIX")
+    if vix_df is not None and today in vix_df.index:
+        vix = float(vix_df.loc[today, "Close"])
+
+    sp_below_sma = False
+    sp_5d_pct: Optional[float] = None
+    sp_df = macro_history.get("^GSPC")
+    if sp_df is not None and today in sp_df.index:
+        sp_close = float(sp_df.loc[today, "Close"])
+        sma_series = sp_df["Close"].rolling(200).mean()
+        if today in sma_series.index:
+            sma_val = sma_series.loc[today]
+            if not pd.isna(sma_val):
+                sp_below_sma = sp_close < float(sma_val)
+        try:
+            idx = sp_df.index.get_loc(today)
+            if isinstance(idx, int) and idx >= 5:
+                sp_5d_ago = float(sp_df["Close"].iloc[idx - 5])
+                if sp_5d_ago > 0:
+                    sp_5d_pct = (sp_close / sp_5d_ago - 1) * 100
+        except KeyError:
+            pass
+
+    if vix is not None and vix > 30:
+        return "RISK_OFF"
+    if sp_5d_pct is not None and sp_5d_pct <= -7:
+        return "RISK_OFF"
+    if sp_below_sma:
+        return "BEAR"
+    if vix is not None and vix > 20:
+        return "CHOPPY"
+    return "BULL"
+
+
 def run_backtest(
     history: Dict[str, pd.DataFrame],
     strategy_cfg: dict,
@@ -98,6 +141,8 @@ def run_backtest(
     max_positions: int = 10,
     slippage_pct: float = 0.001,
     max_hold_days: int = 60,
+    use_regime: bool = False,
+    macro_history: Optional[Dict[str, pd.DataFrame]] = None,
 ) -> BacktestResult:
     if not history:
         raise ValueError("history is empty")
@@ -131,6 +176,7 @@ def run_backtest(
     positions: Dict[str, Trade] = {}
     closed: List[Trade] = []
     equity_history: List[Tuple[pd.Timestamp, float]] = []
+    regime_stats: Dict[str, int] = {"BULL": 0, "CHOPPY": 0, "BEAR": 0, "RISK_OFF": 0}
 
     for i, today in enumerate(all_dates):
         # 1. 매도 처리 (오늘 종가)
@@ -157,8 +203,17 @@ def run_backtest(
             cash += exit_price * trade.shares
             closed.append(trade)
 
+        # 1.5. regime 판정
+        regime_today: Optional[str] = None
+        if use_regime and macro_history is not None:
+            regime_today = _simple_regime_at_date(today, macro_history)
+            regime_stats[regime_today] = regime_stats.get(regime_today, 0) + 1
+
         # 2. 매수 후보 추출 (오늘 종가 기준 신호)
         empty_slots = max_positions - len(positions)
+        if regime_today in ("BEAR", "RISK_OFF"):
+            empty_slots = 0
+
         if empty_slots > 0 and cash > 1000 and i + 1 < len(all_dates):
             candidates = []
             for ticker, df in enriched.items():
@@ -201,6 +256,7 @@ def run_backtest(
                     entry_price=entry_price,
                     shares=shares,
                     entry_reason="; ".join(sig.reasons),
+                    entry_regime=regime_today,
                 )
 
         # 4. equity 기록
@@ -244,4 +300,6 @@ def run_backtest(
         start_date=all_dates[0],
         end_date=all_dates[-1],
         n_universe=len(enriched),
+        regime_used=use_regime,
+        regime_stats=regime_stats if use_regime else {},
     )
