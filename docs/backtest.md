@@ -92,3 +92,33 @@ Sharpe 0.7 / Max DD -32% / Win 38% / PF 1.2
 Sharpe 2.1 / Max DD -8% / Win 75% / PF 4.5 (n_trades = 8)
 → 너무 좋은 결과 + 트레이드 부족 = over-fit 의심. 다른 기간으로 재검증.
 ```
+
+## Walk-forward (rolling out-of-sample)
+
+단일 기간 백테스트는 over-fit 위험 — 룰이 특정 시기에만 잘 작동했을 수도. Walk-forward는 매 step마다 window를 굴려 robustness 검증:
+
+```bash
+python -m src.backtest.walkforward --test-years 1 --step-months 12 --days 2000
+```
+
+옵션:
+- `--test-years 1`: 각 window 1년
+- `--step-months 12`: 1년씩 굴림 (겹침 없음)
+- `--days 2000`: 다운로드 영업일 (≈8년)
+
+### 통과 기준 (Walk-forward)
+
+| 지표 | 양호 |
+|---|---|
+| 모든 window Sharpe > 0 | 최소 조건 |
+| Sharpe 평균 > 1.0, std < 0.5 | 일관적 alpha |
+| 모든 window Profit factor > 1.0 | 룰 자체 손실 안 봄 |
+| Max DD 평균 > -25%, min > -35% | 실전 견딜 수 있음 |
+
+**모든 window 양호 = 룰이 시기/regime에 무관하게 안정** → 실전 deploy 후보.
+**일부 window만 양호 = regime 의존** → Tier 1 regime 필터 조합 권장.
+**대부분 window 부진 = 룰 자체 실패** → 파라미터 재검토 또는 룰 변경.
+
+### `--use-regime`과의 조합
+
+단일 백테스트는 `--use-regime`으로 비교 가능. walk-forward는 현재 미통합 (다음 phase). 수동으로 BULL/BEAR 기간을 따로 walk-forward 돌려 비교.

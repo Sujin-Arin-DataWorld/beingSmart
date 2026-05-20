@@ -100,10 +100,33 @@ GitHub repo → **Settings → Secrets and variables → Actions → New reposit
 실거래 적용 전 historical 효과 확인:
 
 ```bash
+# 단일 기간 백테스트
 python -m src.backtest --start 2020-01-01 --end 2024-12-31
+python -m src.backtest --use-regime          # VIX/SP500 historical로 BEAR/RISK_OFF 차단
+
+# Walk-forward (rolling out-of-sample) — over-fit 검출
+python -m src.backtest.walkforward --test-years 1 --step-months 12
 ```
 
-결과는 `backtests/YYYY-MM-DD_HHMMSS.md`에 저장. Sharpe, max DD, win rate, profit factor 등 자동 계산. 통과 기준과 해석: [`docs/backtest.md`](docs/backtest.md).
+결과는 `backtests/`에 마크다운+JSON으로 저장. Sharpe, max DD, win rate, profit factor 자동 계산. 통과 기준: [`docs/backtest.md`](docs/backtest.md).
+
+## Paper trading 시뮬레이션
+
+매일 추천을 가상 계좌에 실집행해 룰의 실시간 alpha 측정. 실거래에 영향 없음.
+
+```bash
+python -m src.papertrade --capital 100000 --top-n 3
+```
+
+state는 `paper_state.yaml`에 저장 (홀딩, 거래 이력, P&L). 매일 한 번 실행하면 누적.
+
+## (옵션) Alpaca 데이터 fallback
+
+yfinance 누락 종목을 Alpaca로 보완 (무료 IEX 데이터):
+
+1. https://alpaca.markets/ 무료 가입
+2. `.env`에 `ALPACA_API_KEY` / `ALPACA_SECRET` 추가
+3. 자동 활성화 — yfinance 우선, 누락만 Alpaca 호출
 
 ## 매매 후 portfolio.yaml 동기화
 
@@ -133,6 +156,10 @@ holdings:
 - **자동 sizing**: ATR 기반 정수 매수 수량 + 리스크 금액 자동 계산
 - **분산도**: 상관 매트릭스 + 섹터 노출 + 포트폴리오 베타 + diversification score
 - **catalyst**: 매수 후보 최근 72h 뉴스 자동 fetch (yfinance)
+- **drawdown 가드**: 포트폴리오 current DD ≤ -15%면 신규 매수 자동 차단
+- **walk-forward 백테스트**: rolling window로 over-fit 검출
+- **paper trading**: 룰을 가상 계좌에 실집행해 실시간 alpha 측정
+- **Alpaca fallback**: yfinance 누락 시 보완 (API key 등록 시 자동)
 
 상세: [`docs/strategy.md`](docs/strategy.md), [`docs/backtest.md`](docs/backtest.md)
 

@@ -19,6 +19,7 @@ def generate_report(
     sector_exposure_pct: Optional[Dict[str, float]] = None,
     portfolio_beta: Optional[float] = None,
     news_by_ticker: Optional[Dict[str, List[Dict]]] = None,
+    drawdown: Optional[Dict] = None,
 ) -> str:
     today = datetime.now().strftime("%Y-%m-%d %H:%M")
     strategy = config["strategy"]
@@ -74,6 +75,16 @@ def generate_report(
     if portfolio_beta is not None:
         beta_note = "공격적" if portfolio_beta > 1.2 else ("방어적" if portfolio_beta < 0.8 else "시장 평균")
         lines.append(f"- **포트폴리오 베타**: {portfolio_beta:.2f} ({beta_note})")
+    if drawdown is not None:
+        dd_warning = ""
+        if drawdown["current_dd_pct"] <= -10:
+            dd_warning = " ⚠️"
+        lines.append(
+            f"- **drawdown**: current {drawdown['current_dd_pct']:+.2f}%{dd_warning}, "
+            f"MTD {drawdown['mtd_dd_pct']:+.2f}%, "
+            f"YTD {drawdown['ytd_dd_pct']:+.2f}%, "
+            f"max {drawdown['max_dd_pct']:+.2f}% (n={drawdown['n_records']})"
+        )
     lines.append("")
 
     # === 분산도 ===

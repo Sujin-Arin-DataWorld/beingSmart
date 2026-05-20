@@ -132,6 +132,22 @@ shares = min(risk_based, cap_based)  # 보수적
 매수 후보 상위 N개에 대해 yfinance `Ticker.news`로 최근 72시간 헤드라인 fetch.
 리포트에 종목별 링크와 발행 시간 표시. AI 해석 prompt에도 inject되어 종합 판단에 사용.
 
+## Drawdown 가드
+
+매일 portfolio equity를 `equity_history.yaml`에 누적. 다음 자동 계산:
+
+- **current DD**: 최근 peak 대비 현재 손실
+- **MTD DD**: 이번 달 시작 peak 대비 손실
+- **YTD DD**: 이번 해 시작 peak 대비 손실
+- **all-time max DD**
+
+**자동 차단**: current DD ≤ `disable_entries_threshold_pct` (기본 -15%) 시 모든 신규 매수 차단.
+DD 회복 후 자동 재개. 매도 신호는 계속 작동.
+
+근거: drawdown 깊을수록 의사결정 품질 저하 + 회복까지 더 큰 수익률 필요 (예: -20% DD → 회복에 +25% 필요).
+
+`config.yaml`의 `drawdown:` 섹션에서 임계 조정.
+
 ## 자료/근거
 
 - **RSI**: Wilder, J. (1978). *New Concepts in Technical Trading Systems*.

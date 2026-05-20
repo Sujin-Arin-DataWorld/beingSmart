@@ -23,7 +23,7 @@ try:
 except ImportError:
     pass
 
-from src.data.fetcher import fetch_history
+from src.data.alpaca import fetch_with_fallback, is_alpaca_available
 from src.data.macro import fetch_macro_snapshot, compute_breadth
 from src.data.fundamentals import fetch_fundamentals_batch, days_to_earnings
 from src.data.news import fetch_news_batch
@@ -39,6 +39,12 @@ from src.portfolio.diversification import (
     correlation_with_existing,
 )
 from src.portfolio.sizing import compute_position_size, reward_to_risk_ratio
+from src.portfolio.drawdown import (
+    append_equity_point,
+    compute_drawdowns,
+    load_equity_history,
+    should_disable_new_entries,
+)
 from src.regime.classifier import classify as classify_regime
 from src.recommender.ai import get_ai_summary
 from src.report.generator import generate_report, save_report
@@ -58,8 +64,9 @@ def main() -> int:
     ))
     print(f"[beingSmart] universe = {len(tickers)} tickers")
 
-    print(f"[beingSmart] downloading history...")
-    history = fetch_history(
+    print(f"[beingSmart] downloading history (yfinance + Alpaca fallback: "
+          f"{'available' if is_alpaca_available() else 'unavailable'})...")
+    history = fetch_with_fallback(
         tickers, days=config["strategy"]["screening"]["lookback_days"]
     )
     print(f"[beingSmart] history loaded for {len(history)} tickers")
@@ -212,6 +219,22 @@ def main() -> int:
         holdings_status.append(status)
     print(f"[beingSmart] sell signals: {len(sell_signals)}, holdings: {len(holdings_status)}")
 
+    # === Drawdown 추적 ===
+    cash_now = portfolio.get("cash_usd", 0.0)
+    current_equity = cash_now + sum(h["market_value"] for h in holdings_status)
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    dd_cfg = config.get("drawdown", {})
+    equity_history_path = ROOT / "equity_history.yaml"
+    if dd_cfg.get("track_history", True):
+        append_equity_point(equity_history_path, today_str, current_equity)
+    dd_history = load_equity_history(equity_history_path)
+    dd_metrics = compute_drawdowns(dd_history)
+    dd_threshold = dd_cfg.get("disable_entries_threshold_pct", -15.0)
+    if should_disable_new_entries(dd_metrics, threshold_pct=dd_threshold):
+        print(f"[beingSmart] ⚠️ DD {dd_metrics['current_dd_pct']:.2f}% ≤ {dd_threshold}% "
+              "— 신규 매수 disable")
+        buy_signals = []  # 후보 모두 제거
+
     # === AI 해석 (Tier 2 컨텍스트 포함) ===
     ai_context = {
         "regime": regime_assessment.regime.value,
@@ -221,6 +244,7 @@ def main() -> int:
         "portfolio_beta": portfolio_beta,
         "news": news_by_ticker,
         "fundamentals": {t: fundamentals.get(t) for t in candidate_tickers if fundamentals.get(t)},
+        "drawdown": dd_metrics,
     }
     ai = get_ai_summary(buy_signals, sell_signals, holdings_status, context=ai_context)
     if ai:
@@ -243,6 +267,7 @@ def main() -> int:
         sector_exposure_pct=sect_exp,
         portfolio_beta=portfolio_beta,
         news_by_ticker=news_by_ticker,
+        drawdown=dd_metrics,
     )
 
     reports_dir = ROOT / "reports"

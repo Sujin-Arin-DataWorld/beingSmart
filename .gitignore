@@ -28,3 +28,7 @@ env/
 data_cache/
 *.log
 .ipynb_checkpoints/
+
+# Paper trading은 git tracking 권장 — 매일 commit이 노이즈면 아래 주석 해제
+# paper_state.yaml
+# equity_history.yaml

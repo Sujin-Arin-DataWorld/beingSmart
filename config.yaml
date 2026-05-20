@@ -71,6 +71,11 @@ diversification:
   high_corr_warning: 0.70         # 보유와 상관 이 이상이면 warning
   max_sector_warning: 0.40        # 단일 섹터 비중 이 이상이면 warning
 
+# Portfolio drawdown 가드
+drawdown:
+  disable_entries_threshold_pct: -15.0  # current DD가 이 이하면 신규 매수 disable
+  track_history: true                   # equity_history.yaml에 daily equity 누적
+
 report:
   top_n_recommendations: 10
   language: ko                    # 리포트 언어 (ko / en)

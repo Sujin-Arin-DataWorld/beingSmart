@@ -34,11 +34,20 @@ src/
 │   └── ai.py            Claude API 종합 해석 (regime/분산도/catalyst 포함)
 ├── report/
 │   └── generator.py     마크다운 리포트
-└── backtest/
-    ├── engine.py        시뮬레이션 (--use-regime 옵션)
-    ├── metrics.py       Sharpe, max DD, profit factor
-    └── __main__.py      python -m src.backtest CLI
+├── backtest/
+│   ├── engine.py        시뮬레이션 (--use-regime 옵션)
+│   ├── metrics.py       Sharpe, max DD, profit factor
+│   ├── walkforward.py   rolling out-of-sample (over-fit 검출)
+│   └── __main__.py      python -m src.backtest CLI
+└── papertrade/
+    ├── state.py         paper_state.yaml 관리 (cash, holdings, trades)
+    ├── runner.py        매일 가상 매수/매도 실집행
+    └── __main__.py      python -m src.papertrade CLI
 ```
+
+추가 모듈 (Tier 3):
+- `src/data/alpaca.py`: yfinance 누락 시 fallback (ALPACA_API_KEY 필요)
+- `src/portfolio/drawdown.py`: equity_history.yaml 누적, DD 추적, 임계 초과 시 매수 차단
 
 ## 실행 진입점
 
