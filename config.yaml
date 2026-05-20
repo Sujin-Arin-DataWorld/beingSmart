@@ -29,6 +29,24 @@ strategy:
     min_price: 5                  # 페니주식 제외
     lookback_days: 250            # 데이터 조회 기간 (250 영업일)
 
+# 시장 regime 분류 임계값
+regime:
+  risk_off_vix: 30.0              # VIX 이 값 초과 시 RISK_OFF
+  risk_off_sp_5d_pct: -7.0        # S&P 5일 변화 이 값 이하 시 RISK_OFF
+  choppy_vix: 20.0                # CHOPPY 진입 VIX
+  choppy_breadth: 0.40            # advance ratio 이 값 미만이면 CHOPPY
+
+# 매수 신호 점수화 (0~100 가중합)
+scoring:
+  weights:
+    rsi: 0.20                     # 과매도 깊이
+    macd: 0.15                    # 모멘텀 강도
+    volume: 0.10                  # 거래량 확인
+    trend: 0.15                   # SMA200 거리
+    regime: 0.25                  # 시장 상태 정합성
+    macro: 0.15                   # VIX 등 거시 안정성
+  min_score_threshold: 40         # 이 점수 미만은 리포트 추천 제외
+
 report:
   top_n_recommendations: 10
   language: ko                    # 리포트 언어 (ko / en)

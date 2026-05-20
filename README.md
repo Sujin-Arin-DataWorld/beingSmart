@@ -10,12 +10,16 @@
 매 영업일(미국 장 마감 후) 자동으로:
 
 1. 감시 유니버스(ETF + 대형주) 전체 일봉 데이터 수집 (yfinance)
-2. 기술 지표 계산 (SMA, RSI, MACD, ATR, Volume Ratio)
-3. 매수 룰 적용 → **신규 진입 후보** 추출
-4. 보유 종목별 매도 신호 점검 → **매도 검토 리스트**
-5. 보유 종목 손절선·익절선·손익률 갱신
-6. Claude로 종합 해석 (포지션 액션, 우선순위)
-7. `reports/YYYY-MM-DD.md` 마크다운 리포트 저장 + GitHub에 자동 commit
+2. 거시 변수 스냅샷 (VIX, DXY, 10Y/30Y, 금, 원유, 3대 지수)
+3. 기술 지표 계산 (SMA, RSI, MACD, ATR, Volume Ratio)
+4. **시장 regime 분류** (BULL/CHOPPY/BEAR/RISK_OFF)
+5. 매수 룰 적용 → **신호 점수화 (0~100)** → 신규 진입 후보 추출
+6. 보유 종목별 매도 신호 점검 → **매도 검토 리스트**
+7. 보유 종목 손절선·익절선·손익률 갱신
+8. Claude로 종합 해석 (포지션 액션, 우선순위)
+9. `reports/YYYY-MM-DD.md` 마크다운 리포트 저장 + GitHub에 자동 commit
+
+추가로 **백테스트 엔진** (`python -m src.backtest`)으로 룰의 historical 효과 검증.
 
 ## 폴더 구조
 
@@ -86,6 +90,16 @@ GitHub repo → **Settings → Secrets and variables → Actions → New reposit
 - 봇이 `reports/YYYY-MM-DD.md`를 자동 commit
 - `reports/latest.md`는 항상 최신 리포트의 사본
 
+## 백테스트로 룰 검증
+
+실거래 적용 전 historical 효과 확인:
+
+```bash
+python -m src.backtest --start 2020-01-01 --end 2024-12-31
+```
+
+결과는 `backtests/YYYY-MM-DD_HHMMSS.md`에 저장. Sharpe, max DD, win rate, profit factor 등 자동 계산. 통과 기준과 해석: [`docs/backtest.md`](docs/backtest.md).
+
 ## 매매 후 portfolio.yaml 동기화
 
 자동 주문 없음. 매수/매도는 본인 broker에서 직접 실행 후 `portfolio.yaml` 수동 갱신:
@@ -106,11 +120,13 @@ holdings:
 
 ## 전략 요약
 
-- **매수**: 종가 > SMA(200), RSI < 40, MACD 양전환, 거래량 ≥ 1.2x
-- **매도**: RSI > 75, SMA(50) 이탈, ATR×2 손절, ATR×3 익절, 평단가 -8% 안전망
-- **포지션 크기**: 자본의 2% 리스크 기준 (참고용)
+- **매수 룰**: 종가 > SMA(200), RSI < 40, MACD 양전환, 거래량 ≥ 1.2x
+- **매도 룰**: RSI > 75, SMA(50) 이탈, ATR×2 손절, ATR×3 익절, 평단가 -8% 안전망
+- **시장 regime**: VIX + S&P 200SMA + breadth → BULL/CHOPPY/BEAR/RISK_OFF
+- **신호 점수화 (0~100)**: 룰 통과 종목 가중합, threshold 이상만 추천
+- **거시 dashboard**: VIX, DXY, 10Y/30Y, 금, 원유, 3대 지수 매일 갱신
 
-상세: [`docs/strategy.md`](docs/strategy.md)
+상세: [`docs/strategy.md`](docs/strategy.md), [`docs/backtest.md`](docs/backtest.md)
 
 ## 한계와 주의
 

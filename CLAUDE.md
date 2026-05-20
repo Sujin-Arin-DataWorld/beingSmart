@@ -14,13 +14,32 @@
 
 ```
 src/
-├── data/        yfinance 래퍼 (가격/거래량 다운로드, 캐싱)
-├── indicators/  RSI, MACD, SMA, ATR, BB (pandas 직접 계산)
-├── screener/    config.yaml의 룰 적용 → 매수/매도 후보
-├── portfolio/   보유 종목 로드, 매도선/익절선 계산
-├── recommender/ Claude API 호출 → 자연어 해석
-└── report/      마크다운 리포트 생성 → reports/YYYY-MM-DD.md
+├── data/
+│   ├── fetcher.py       yfinance 일봉 다운로드
+│   └── macro.py         거시 변수 (VIX, DXY, 금리, 금, 원유, 지수)
+├── indicators/
+│   └── technical.py     RSI, MACD, SMA, ATR (pandas 직접 계산)
+├── regime/
+│   └── classifier.py    BULL/CHOPPY/BEAR/RISK_OFF 분류 + buy modifier
+├── screener/
+│   ├── rules.py         매수/매도 룰 (config.yaml 기반)
+│   └── scoring.py       매수 신호 0~100 점수화 (6요인 가중합)
+├── portfolio/
+│   └── manager.py       portfolio.yaml 로드, 손절선/익절선 계산
+├── recommender/
+│   └── ai.py            Claude API 종합 해석
+├── report/
+│   └── generator.py     마크다운 리포트 → reports/YYYY-MM-DD.md
+└── backtest/
+    ├── engine.py        historical OHLCV 시뮬레이션
+    ├── metrics.py       Sharpe, max DD, profit factor 등
+    └── __main__.py      python -m src.backtest CLI
 ```
+
+## 실행 진입점
+
+- 데일리 리포트: `python main.py`
+- 백테스트: `python -m src.backtest [--start ...] [--end ...] [--capital ...]`
 
 ## 운영 원칙
 
